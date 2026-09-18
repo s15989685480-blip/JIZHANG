@@ -188,23 +188,23 @@
         </div>
     </div>
 <script>
-// ========== 在这里填入你的Supabase信息 + 固定账号秘钥 ==========
+// ========== Supabase配置 ==========
 const supabaseUrl = "https://sauzljctykhobanljsam.supabase.co";
 const supabaseAnonKey = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
-// 固定Supabase账号密码
 const FIX_EMAIL = "376035531@qq.com";
 const FIX_PASSWORD = "123456";
-// 网页访问秘钥（你自定义）
 const ACCESS_KEY = "123456";
-// ===============================================
+
 const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
 const CATEGORIES = {
     income: ['工资', '奖金', '投资收益', '兼职', '红包', '其他'],
     expense: ['餐饮', '购物', '交通', '住房', '水电煤', '娱乐', '医疗', '教育', '通讯', '其他']
 };
 let currentUser = null;
 let records = [];
-// DOM
+
+// DOM元素
 const loginMask = document.getElementById('loginMask');
 const appWrap = document.getElementById('appWrap');
 const loginErr = document.getElementById('loginErr');
@@ -217,13 +217,14 @@ const noteInput = document.getElementById('note');
 const recordsContainer = document.getElementById('recordsContainer');
 const filterType = document.getElementById('filterType');
 const filterMonth = document.getElementById('filterMonth');
-const clearFilterBtn = document.getElementById('clearFilterBtn'); // 修复：补充获取清除按钮DOM
-// ========== 简化登录逻辑：输入访问秘钥自动登录固定Supabase账号 ==========
+const clearFilterBtn = document.getElementById('clearFilterBtn');
+
+// 登录按钮事件
 document.getElementById('loginBtn').addEventListener('click', signIn);
-// 回车登录
 document.getElementById('pwdInput').addEventListener('keydown', e=>{
     if(e.key === 'Enter') signIn();
 })
+
 async function signIn() {
     const inputKey = document.getElementById('pwdInput').value.trim();
     if (!inputKey) { showErr('请输入访问秘钥'); return; }
@@ -231,7 +232,6 @@ async function signIn() {
         showErr('秘钥错误，请重新输入');
         return;
     }
-    //秘钥正确，自动登录固定supabase账号
     const { data, error } = await supabase.auth.signInWithPassword({ email:FIX_EMAIL, password:FIX_PASSWORD });
     if (error) showErr(error.message);
 }
@@ -242,7 +242,7 @@ function showErr(msg) {
 async function signOut() {
     await supabase.auth.signOut();
 }
-// 监听登录状态
+
 supabase.auth.onAuthStateChange(async (event, session) => {
     if (session) {
         currentUser = session.user;
@@ -256,7 +256,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         appWrap.classList.add('hidden');
     }
 });
-// ========== 数据库操作 ==========
+
 async function loadRecords() {
     const { data, error } = await supabase
         .from('account_records')
@@ -282,7 +282,7 @@ async function deleteRecord(id) {
     if (error) { alert('删除失败: ' + error.message); return; }
     await loadRecords();
 }
-// ========== UI渲染 ==========
+
 function formatMoney(v) { return '¥' + Number(v).toFixed(2); }
 function updateCategoryOptions() {
     const options = CATEGORIES[typeSelect.value] || [];
@@ -343,7 +343,7 @@ function refreshUI() {
     renderSummary();
     renderRecords();
 }
-// ========== 事件绑定 ==========
+
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const record = {
@@ -352,7 +352,7 @@ form.addEventListener('submit', async (e) => {
         category: categorySelect.value,
         record_date: dateInput.value,
         note: noteInput.value.trim(),
-        user_id: currentUser.id // 修复RLS：增加user_id
+        user_id: currentUser.id
     };
     if (!record.amount || record.amount <= 0) { alert('请输入正确的金额'); return; }
     if (!record.record_date) { alert('请选择日期'); return; }
@@ -369,9 +369,10 @@ clearFilterBtn.addEventListener('click', () => {
     filterMonth.value = '';
     renderRecords();
 });
-// 初始化
+
 setDefaultDate();
 updateCategoryOptions();
 </script>
 </body>
 </html>
+
