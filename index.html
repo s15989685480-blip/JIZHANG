@@ -71,7 +71,6 @@
             margin-bottom:12px;
             text-align:center;
         }
-
         .app {
             width: 100%;
             max-width: 720px;
@@ -354,6 +353,11 @@
         .hidden {
             display: none !important;
         }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+        }
         @media (max-width: 480px) {
             body {
                 padding: 10px;
@@ -373,6 +377,8 @@
             }
         }
     </style>
+    <!-- 引入Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <!-- 登录弹窗 -->
@@ -380,11 +386,10 @@
         <div class="login-box">
             <h2>🔐 请输入访问密钥</h2>
             <div class="tip">输入正确密钥才可进入财务台账</div>
-            <input id="keyInput" type="password" placeholder="请输入密码">
+            <input id="keyInput" type="password" placeholder="请输入密钥">
             <button id="loginBtn" class="btn">确认进入</button>
         </div>
     </div>
-
     <div class="app hidden" id="appWrap">
         <h1>📒 家庭财务台账</h1>
         <!-- 汇总卡片 -->
@@ -422,9 +427,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>分类</label>
-                        <select id="category" required>
-                            <!-- 由JS根据类型动态填充 -->
-                        </select>
+                        <select id="category" required></select>
                     </div>
                     <div class="form-group">
                         <label>日期</label>
@@ -453,7 +456,7 @@
                 <button class="btn btn-secondary btn-sm" id="clearFilterBtn">清除筛选</button>
             </div>
             <div id="recordsContainer">
-                <div class="empty-state">暂无记录，请添加</div>
+                <div class="loading">加载中...</div>
             </div>
         </div>
         <!-- 分类汇总 -->
@@ -466,36 +469,43 @@
                 <div class="empty-state">暂无数据</div>
             </div>
         </div>
-        <!-- 数据同步 -->
+        <!-- 数据备份 -->
         <div class="card">
-            <h2>💾 数据导出导入</h2>
+            <h2>💾 数据备份</h2>
             <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:12px;">
-                数据保存在浏览器本地。可导出 Excel 文件备份。
+                数据已自动保存到云端，多设备同步。可导出 Excel 文件备份。
             </p>
             <div class="btn-row">
                 <button class="btn btn-success" id="exportBtn">导出 Excel</button>
-                <button class="btn btn-secondary" id="importBtn">导入文件</button>
-                <input type="file" id="importFileInput" accept=".json,.xls" style="display:none;">
+                <button class="btn btn-secondary" id="importBtn">导入 JSON 备份</button>
+                <input type="file" id="importFileInput" accept=".json" style="display:none;">
             </div>
         </div>
     </div>
     <script>
         (function() {
-            // ========= 访问密钥，自行修改这里 =========
-            const PASSWORD = "2008";
-            const STORAGE_KEY = 'familyFinanceRecords';
+            // ========== 配置区 ==========
+            const PASSWORD = "2008"; // 访问密钥
+            const SUPABASE_URL = "https://sauzljctykhobanljsam.supabase.co";
+            const SUPABASE_ANON_KEY = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
+            const TABLE_NAME = "account_records";
 
-            const loginMask = document.getElementById('loginMask');
-            const appWrap = document.getElementById('appWrap');
-            const keyInput = document.getElementById('keyInput');
-            const loginBtn = document.getElementById('loginBtn');
+            // 初始化Supabase客户端
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: { persistSession: false, autoRefreshToken: false }
+            });
 
             // ---------- 分类配置 ----------
             const CATEGORIES = {
                 income: ['工资', '奖金', '投资收益', '兼职', '红包', '其他'],
                 expense: ['餐饮', '购物', '交通', '住房', '水电煤', '娱乐', '医疗', '教育', '通讯', '其他']
             };
+
             // ---------- DOM 元素 ----------
+            const loginMask = document.getElementById('loginMask');
+            const appWrap = document.getElementById('appWrap');
+            const keyInput = document.getElementById('keyInput');
+            const loginBtn = document.getElementById('loginBtn');
             const form = document.getElementById('recordForm');
             const typeSelect = document.getElementById('type');
             const amountInput = document.getElementById('amount');
@@ -517,43 +527,53 @@
 
             let records = [];
 
-            // 登录校验
-            function doLogin(){
+            // ---------- 登录校验 ----------
+            function doLogin() {
                 const inputKey = keyInput.value.trim();
-                if(inputKey === PASSWORD){
+                if (inputKey === PASSWORD) {
                     loginMask.classList.add('hidden');
                     appWrap.classList.remove('hidden');
                     initApp();
-                }else{
+                } else {
                     alert("密钥错误，请重新输入");
                     keyInput.value = "";
                     keyInput.focus();
                 }
             }
             loginBtn.addEventListener('click', doLogin);
-            keyInput.addEventListener('keydown', e=>{
-                if(e.key === 'Enter') doLogin();
+            keyInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter') doLogin();
             });
 
-            // ---------- 数据存储 ----------
-            function loadRecords() {
-                const stored = localStorage.getItem(STORAGE_KEY);
-                if (stored) {
-                    try {
-                        records = JSON.parse(stored);
-                        if (!Array.isArray(records)) records = [];
-                    } catch (e) {
-                        console.error('解析存储数据失败', e);
-                        records = [];
-                    }
-                } else {
-                    // 首次打开无示例数据
-                    records = [];
-                    saveRecords();
+            // ---------- 云端数据操作 ----------
+            async function loadRecords() {
+                recordsContainer.innerHTML = '<div class="loading">正在从云端加载数据...</div>';
+                const { data, error } = await supabase
+                    .from(TABLE_NAME)
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    recordsContainer.innerHTML = '<div class="empty-state">加载失败：' + error.message + '</div>';
+                    return;
                 }
+                records = data || [];
+                refreshUI();
             }
-            function saveRecords() {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+
+            async function addRecordToCloud(record) {
+                const { error } = await supabase
+                    .from(TABLE_NAME)
+                    .insert([record]);
+                if (error) throw error;
+            }
+
+            async function deleteRecordFromCloud(id) {
+                const { error } = await supabase
+                    .from(TABLE_NAME)
+                    .delete()
+                    .eq('id', id);
+                if (error) throw error;
             }
 
             // ---------- 工具函数 ----------
@@ -706,19 +726,27 @@
                 renderExpenseChart();
                 renderCategorySummary();
             }
-            window.deleteRecord = function(id) {
+
+            // ---------- 删除记录 ----------
+            window.deleteRecord = async function(id) {
                 if (!confirm('确定要删除这条记录吗？')) return;
-                records = records.filter(record => String(record.id) !== String(id));
-                saveRecords();
-                refreshUI();
+                try {
+                    await deleteRecordFromCloud(id);
+                    await loadRecords();
+                } catch (err) {
+                    alert('删除失败：' + err.message);
+                }
             };
-            form.addEventListener('submit', function(e) {
+
+            // ---------- 添加记录 ----------
+            form.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const type = typeSelect.value;
                 const amount = parseFloat(amountInput.value);
                 const category = categorySelect.value;
                 const date = dateInput.value;
                 const note = noteInput.value.trim();
+
                 if (!amount || amount <= 0) {
                     alert('请输入正确的金额');
                     return;
@@ -727,6 +755,7 @@
                     alert('请选择日期');
                     return;
                 }
+
                 const newRecord = {
                     id: Date.now().toString(),
                     type: type,
@@ -735,16 +764,23 @@
                     date: date,
                     note: note
                 };
-                records.push(newRecord);
-                saveRecords();
-                amountInput.value = '';
-                noteInput.value = '';
-                setDefaultDate();
-                updateCategoryOptions();
-                refreshUI();
-                alert('记录已保存');
+
+                try {
+                    await addRecordToCloud(newRecord);
+                    amountInput.value = '';
+                    noteInput.value = '';
+                    setDefaultDate();
+                    await loadRecords();
+                    alert('记录已保存到云端');
+                } catch (err) {
+                    alert('保存失败：' + err.message);
+                }
             });
+
+            // 监听类型变化更新分类
             typeSelect.addEventListener('change', updateCategoryOptions);
+
+            // 筛选变化
             filterType.addEventListener('change', function() {
                 renderRecords();
                 renderExpenseChart();
@@ -759,6 +795,8 @@
                 renderRecords();
                 renderExpenseChart();
             });
+
+            // ---------- 导出 Excel ----------
             exportBtn.addEventListener('click', function() {
                 const rows = records.map(record => `
                     <tr>
@@ -784,20 +822,20 @@
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
             });
+
+            // ---------- 导入 JSON 备份 ----------
             importBtn.addEventListener('click', function() {
                 importFileInput.click();
             });
-            importFileInput.addEventListener('change', function(e) {
+            importFileInput.addEventListener('change', async function(e) {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
-                reader.onload = function(ev) {
+                reader.onload = async function(ev) {
                     try {
-                        const fileName = file.name.toLowerCase();
-                        const imported = fileName.endsWith('.json')
-                            ? JSON.parse(ev.target.result)
-                            : parseExcelRecords(ev.target.result);
-                        if (!Array.isArray(imported)) throw new Error('不是有效的记录文件');
+                        const imported = JSON.parse(ev.target.result);
+                        if (!Array.isArray(imported)) throw new Error('不是有效的备份文件');
+
                         for (const rec of imported) {
                             if (!rec.id || !['income', 'expense'].includes(rec.type) ||
                                 !Number.isFinite(Number(rec.amount)) || Number(rec.amount) <= 0 ||
@@ -805,10 +843,16 @@
                                 throw new Error('记录字段不完整');
                             }
                         }
-                        if (confirm(`导入将覆盖当前 ${records.length} 条记录，共导入 ${imported.length} 条，是否继续？`)) {
-                            records = imported;
-                            saveRecords();
-                            refreshUI();
+
+                        if (confirm(`导入将覆盖云端全部 ${records.length} 条记录，共导入 ${imported.length} 条，是否继续？`)) {
+                            // 先删除所有旧记录，再批量导入新记录
+                            for (const rec of records) {
+                                await deleteRecordFromCloud(rec.id);
+                            }
+                            for (const rec of imported) {
+                                await addRecordToCloud(rec);
+                            }
+                            await loadRecords();
                             alert('导入成功');
                         }
                     } catch (err) {
@@ -818,29 +862,12 @@
                 reader.readAsText(file);
                 e.target.value = '';
             });
-            function parseExcelRecords(content) {
-                const documentFromFile = new DOMParser().parseFromString(content, 'text/html');
-                const rows = Array.from(documentFromFile.querySelectorAll('table tr')).slice(1);
-                if (rows.length === 0) throw new Error('Excel 文件中没有找到记录表格');
-                return rows.map((row, index) => {
-                    const cells = Array.from(row.querySelectorAll('th, td')).map(cell => cell.textContent.trim());
-                    const typeText = cells[1];
-                    return {
-                        id: cells[0] || `${Date.now()}-${index}`,
-                        type: typeText === '收入' || typeText === 'income' ? 'income' : 'expense',
-                        amount: cells[2],
-                        category: cells[3],
-                        date: cells[4],
-                        note: cells[5] || ''
-                    };
-                });
-            }
 
-            function initApp(){
-                loadRecords();
+            // ---------- 初始化 ----------
+            function initApp() {
                 setDefaultDate();
                 updateCategoryOptions();
-                refreshUI();
+                loadRecords();
             }
         })();
     </script>
