@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>家庭财务台账</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --primary: #2c7be5;
@@ -19,105 +18,374 @@
             --radius: 12px;
             --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-            background: var(--bg); color: var(--text); line-height: 1.5;
-            padding: 16px; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start;
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
-        .app { width: 100%; max-width: 720px; margin: 0 auto; }
-        h1 { font-size: 1.8rem; font-weight: 700; text-align: center; margin-bottom: 16px; color: var(--primary); }
-        /* 登录弹窗 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            padding: 16px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        /* 登录遮罩 */
         .login-mask {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.65);
-            display: flex; justify-content: center; align-items: center; z-index: 9999;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.65);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
         }
         .login-box {
-            background: #fff; border-radius: var(--radius); padding: 28px 24px;
-            width: 90%; max-width: 360px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            background: #fff;
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            width: 90%;
+            max-width: 360px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
-        .login-box h2 { text-align:center; margin-bottom:16px; color:var(--primary); }
+        .login-box h2 {
+            text-align:center;
+            margin-bottom:16px;
+            color:var(--primary);
+        }
         .login-box input {
-            width:100%; padding:12px 14px; border:1px solid var(--border);
-            border-radius:8px; font-size:1rem; margin-bottom:14px;
+            width:100%;
+            padding:12px 14px;
+            border:1px solid var(--border);
+            border-radius:8px;
+            font-size:1rem;
+            margin-bottom:14px;
         }
-        .login-box .tip { font-size:0.8rem; color:var(--text-secondary); margin-bottom:12px; text-align:center; }
-        .login-box .err { color:var(--danger); font-size:0.85rem; margin-bottom:10px; text-align:center; }
-        .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+        .login-box .tip {
+            font-size:0.8rem;
+            color:var(--text-secondary);
+            margin-bottom:12px;
+            text-align:center;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 720px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 16px;
+            color: var(--primary);
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
         .summary-card {
-            background: var(--card-bg); border-radius: var(--radius); padding: 16px 12px;
-            box-shadow: var(--shadow); text-align: center;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 16px 12px;
+            box-shadow: var(--shadow);
+            text-align: center;
         }
-        .summary-card .label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px; }
-        .summary-card .value { font-size: 1.3rem; font-weight: 700; }
-        .summary-card.income .value { color: var(--success); }
-        .summary-card.expense .value { color: var(--danger); }
-        .summary-card.balance .value { color: var(--primary); }
+        .summary-card .label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .summary-card .value {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        .summary-card.income .value {
+            color: var(--success);
+        }
+        .summary-card.expense .value {
+            color: var(--danger);
+        }
+        .summary-card.balance .value {
+            color: var(--primary);
+        }
         .card {
-            background: var(--card-bg); border-radius: var(--radius);
-            box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            margin-bottom: 16px;
         }
-        .card h2 { font-size: 1.1rem; margin-bottom: 12px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-        .form-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-        .form-group { flex: 1 1 calc(50% - 10px); min-width: 140px; display: flex; flex-direction: column; }
-        .form-group.full-width { flex: 1 1 100%; }
-        label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
+        .card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .form-group {
+            flex: 1 1 calc(50% - 10px);
+            min-width: 140px;
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group.full-width {
+            flex: 1 1 100%;
+        }
+        label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
         input, select, textarea {
-            padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
-            font-size: 0.95rem; outline: none; background: #fff; width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+            background: #fff;
+            width: 100%;
         }
-        input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+        }
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
         .btn {
-            display: inline-block; padding: 10px 20px; border: none; border-radius: 8px;
-            font-size: 0.95rem; font-weight: 600; cursor: pointer; text-align: center;
-            background: var(--primary); color: white; width: 100%;
+            display: inline-block;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            text-align: center;
+            white-space: nowrap;
+            background: var(--primary);
+            color: white;
+            width: 100%;
         }
-        .btn:hover { opacity: 0.85; }
-        .btn-secondary { background: #909399; }
-        .btn-danger { background: var(--danger); }
-        .btn-sm { padding: 6px 12px; font-size: 0.8rem; width: auto; }
-        .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-        .filter-bar select, .filter-bar input { flex: 1; min-width: 120px; }
-        .records-list { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; }
+        .btn:hover {
+            opacity: 0.85;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .btn-secondary {
+            background: #909399;
+        }
+        .btn-success {
+            background: var(--success);
+        }
+        .btn-danger {
+            background: var(--danger);
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            width: auto;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .filter-bar select, .filter-bar input {
+            flex: 1;
+            min-width: 120px;
+        }
+        .records-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 240px;
+            overflow-y: auto;
+        }
         .record-item {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 8px; border-bottom: 1px solid var(--border); gap: 8px; flex-wrap: wrap;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 8px;
+            border-bottom: 1px solid var(--border);
+            gap: 8px;
+            flex-wrap: wrap;
         }
-        .record-item:last-child { border-bottom: none; }
-        .record-info { flex: 1; min-width: 180px; }
-        .record-category { font-weight: 600; font-size: 0.95rem; }
-        .record-date { font-size: 0.8rem; color: var(--text-secondary); }
-        .record-note { font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px; word-break: break-all; }
-        .record-amount { font-weight: 700; font-size: 1rem; white-space: nowrap; }
-        .record-amount.income { color: var(--success); }
-        .record-amount.expense { color: var(--danger); }
-        .empty-state { text-align: center; color: var(--text-secondary); padding: 24px 0; }
-        .hidden { display: none !important; }
-        .user-bar { text-align: right; margin-bottom: 12px; font-size: 0.9rem; color: var(--text-secondary); }
+        .record-item:last-child {
+            border-bottom: none;
+        }
+        .record-info {
+            flex: 1;
+            min-width: 180px;
+        }
+        .record-category {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .record-date {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .record-note {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            word-break: break-all;
+        }
+        .record-amount {
+            font-weight: 700;
+            font-size: 1rem;
+            white-space: nowrap;
+        }
+        .record-amount.income {
+            color: var(--success);
+        }
+        .record-amount.expense {
+            color: var(--danger);
+        }
+        .record-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .category-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .category-chip {
+            background: #f0f2f5;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .category-chip .amount {
+            font-weight: 600;
+        }
+        .category-chip.income {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .category-chip.expense {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .expense-chart {
+            margin-bottom: 18px;
+        }
+        .expense-chart-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+        .expense-chart-total {
+            color: var(--danger);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .expense-bars {
+            display: grid;
+            gap: 10px;
+        }
+        .expense-bar-row {
+            display: grid;
+            grid-template-columns: 64px 1fr auto;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+        .expense-bar-track {
+            height: 12px;
+            overflow: hidden;
+            background: #fbe3e5;
+            border-radius: 6px;
+        }
+        .expense-bar-fill {
+            height: 100%;
+            min-width: 3px;
+            background: var(--danger);
+            border-radius: inherit;
+            transition: width 0.35s ease;
+        }
+        .expense-bar-amount {
+            min-width: 74px;
+            color: var(--text-secondary);
+            text-align: right;
+            white-space: nowrap;
+        }
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 24px 0;
+        }
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn-row .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+        .hidden {
+            display: none !important;
+        }
         @media (max-width: 480px) {
-            body { padding: 10px; }
-            .summary-cards { grid-template-columns: 1fr; }
-            .form-group { flex: 1 1 100%; }
-            .record-item { align-items: flex-start; flex-direction: column; }
+            body {
+                padding: 10px;
+            }
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+            .form-group {
+                flex: 1 1 100%;
+            }
+            .record-item {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+            .record-actions {
+                align-self: flex-end;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- 简化登录弹窗：只保留秘钥输入 -->
+    <!-- 登录弹窗 -->
     <div id="loginMask" class="login-mask">
         <div class="login-box">
-            <h2>📒 家庭财务台账</h2>
-            <div class="tip">输入访问秘钥，云端同步数据</div>
-            <div id="loginErr" class="err hidden"></div>
-            <input id="pwdInput" type="password" placeholder="访问秘钥">
-            <button id="loginBtn" class="btn">登录</button>
+            <h2>🔐 请输入访问密钥</h2>
+            <div class="tip">输入正确密钥才可进入财务台账</div>
+            <input id="keyInput" type="password" placeholder="请输入密钥">
+            <button id="loginBtn" class="btn">确认进入</button>
         </div>
     </div>
+
     <div class="app hidden" id="appWrap">
-        <div class="user-bar">
-            <span id="userEmail"></span>
-            <button class="btn btn-secondary btn-sm" onclick="signOut()">退出</button>
-        </div>
         <h1>📒 家庭财务台账</h1>
         <!-- 汇总卡片 -->
         <div class="summary-cards">
@@ -154,7 +422,9 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>分类</label>
-                        <select id="category" required></select>
+                        <select id="category" required>
+                            <!-- 由JS根据类型动态填充 -->
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>日期</label>
@@ -170,7 +440,7 @@
                 <button type="submit" class="btn">保存记录</button>
             </form>
         </div>
-        <!-- 记录明细 -->
+        <!-- 筛选与列表 -->
         <div class="card">
             <h2>📋 记录明细</h2>
             <div class="filter-bar">
@@ -179,199 +449,400 @@
                     <option value="income">仅收入</option>
                     <option value="expense">仅支出</option>
                 </select>
-                <input type="month" id="filterMonth">
-                <button class="btn btn-secondary btn-sm" id="clearFilterBtn">清除</button>
+                <input type="month" id="filterMonth" placeholder="选择月份">
+                <button class="btn btn-secondary btn-sm" id="clearFilterBtn">清除筛选</button>
             </div>
             <div id="recordsContainer">
                 <div class="empty-state">暂无记录，请添加</div>
             </div>
         </div>
-    </div>
-<script>
-// ========== Supabase配置 ==========
-const supabaseUrl = "https://sauzljctykhobanljsam.supabase.co";
-const supabaseAnonKey = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
-const FIX_EMAIL = "376035531@qq.com";
-const FIX_PASSWORD = "123456";
-const ACCESS_KEY = "123456";
-
-const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-
-const CATEGORIES = {
-    income: ['工资', '奖金', '投资收益', '兼职', '红包', '其他'],
-    expense: ['餐饮', '购物', '交通', '住房', '水电煤', '娱乐', '医疗', '教育', '通讯', '其他']
-};
-let currentUser = null;
-let records = [];
-
-// DOM元素
-const loginMask = document.getElementById('loginMask');
-const appWrap = document.getElementById('appWrap');
-const loginErr = document.getElementById('loginErr');
-const form = document.getElementById('recordForm');
-const typeSelect = document.getElementById('type');
-const amountInput = document.getElementById('amount');
-const categorySelect = document.getElementById('category');
-const dateInput = document.getElementById('date');
-const noteInput = document.getElementById('note');
-const recordsContainer = document.getElementById('recordsContainer');
-const filterType = document.getElementById('filterType');
-const filterMonth = document.getElementById('filterMonth');
-const clearFilterBtn = document.getElementById('clearFilterBtn');
-
-// 登录按钮事件
-document.getElementById('loginBtn').addEventListener('click', signIn);
-document.getElementById('pwdInput').addEventListener('keydown', e=>{
-    if(e.key === 'Enter') signIn();
-})
-
-async function signIn() {
-    const inputKey = document.getElementById('pwdInput').value.trim();
-    if (!inputKey) { showErr('请输入访问秘钥'); return; }
-    if(inputKey !== ACCESS_KEY){
-        showErr('秘钥错误，请重新输入');
-        return;
-    }
-    const { data, error } = await supabase.auth.signInWithPassword({ email:FIX_EMAIL, password:FIX_PASSWORD });
-    if (error) showErr(error.message);
-}
-function showErr(msg) {
-    loginErr.textContent = msg;
-    loginErr.classList.remove('hidden');
-}
-async function signOut() {
-    await supabase.auth.signOut();
-}
-
-supabase.auth.onAuthStateChange(async (event, session) => {
-    if (session) {
-        currentUser = session.user;
-        document.getElementById('userEmail').textContent = currentUser.email;
-        loginMask.classList.add('hidden');
-        appWrap.classList.remove('hidden');
-        await loadRecords();
-    } else {
-        currentUser = null;
-        loginMask.classList.remove('hidden');
-        appWrap.classList.add('hidden');
-    }
-});
-
-async function loadRecords() {
-    const { data, error } = await supabase
-        .from('account_records')
-        .select('*')
-        .order('record_date', { ascending: false });
-    if (error) { console.error(error); return; }
-    records = data || [];
-    refreshUI();
-}
-async function addRecord(record) {
-    const { data, error } = await supabase
-        .from('account_records')
-        .insert([record]);
-    if (error) { alert('保存失败: ' + error.message); return; }
-    await loadRecords();
-}
-async function deleteRecord(id) {
-    if (!confirm('确定要删除这条记录吗？')) return;
-    const { error } = await supabase
-        .from('account_records')
-        .delete()
-        .eq('id', id);
-    if (error) { alert('删除失败: ' + error.message); return; }
-    await loadRecords();
-}
-
-function formatMoney(v) { return '¥' + Number(v).toFixed(2); }
-function updateCategoryOptions() {
-    const options = CATEGORIES[typeSelect.value] || [];
-    categorySelect.innerHTML = options.map(c => `<option value="${c}">${c}</option>`).join('');
-}
-function setDefaultDate() {
-    dateInput.value = new Date().toISOString().slice(0, 10);
-}
-function getFilteredRecords() {
-    const t = filterType.value;
-    const m = filterMonth.value;
-    return records.filter(r => {
-        if (t !== 'all' && r.type !== t) return false;
-        if (m && (r.record_date || '').slice(0, 7) !== m) return false;
-        return true;
-    });
-}
-function computeSummary() {
-    let inc = 0, exp = 0;
-    records.forEach(r => {
-        if (r.type === 'income') inc += Number(r.amount) || 0;
-        else exp += Number(r.amount) || 0;
-    });
-    return { inc, exp, balance: inc - exp };
-}
-function renderSummary() {
-    const { inc, exp, balance } = computeSummary();
-    document.getElementById('totalIncome').textContent = formatMoney(inc);
-    document.getElementById('totalExpense').textContent = formatMoney(exp);
-    document.getElementById('balance').textContent = formatMoney(balance);
-}
-function renderRecords() {
-    const filtered = getFilteredRecords();
-    if (filtered.length === 0) {
-        recordsContainer.innerHTML = '<div class="empty-state">没有符合条件的记录</div>';
-        return;
-    }
-    const html = filtered.map(r => `
-        <li class="record-item">
-            <div class="record-info">
-                <div class="record-category">${escapeHtml(r.category)}</div>
-                <div class="record-date">${escapeHtml(r.record_date || '')}</div>
-                ${r.note ? `<div class="record-note">${escapeHtml(r.note)}</div>` : ''}
+        <!-- 分类汇总 -->
+        <div class="card">
+            <h2>📊 分类汇总</h2>
+            <div id="expenseChart" class="expense-chart">
+                <div class="empty-state">暂无支出数据</div>
             </div>
-            <div class="record-amount ${r.type}">${r.type === 'income' ? '+' : '-'}${formatMoney(r.amount)}</div>
-            <button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}')">删除</button>
-        </li>
-    `).join('');
-    recordsContainer.innerHTML = `<ul class="records-list">${html}</ul>`;
-}
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-function refreshUI() {
-    updateCategoryOptions();
-    renderSummary();
-    renderRecords();
-}
+            <div id="categorySummary">
+                <div class="empty-state">暂无数据</div>
+            </div>
+        </div>
+        <!-- 数据同步 -->
+        <div class="card">
+            <h2>💾 数据导出导入</h2>
+            <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:12px;">
+                数据保存在浏览器本地。可导出 Excel 文件备份。
+            </p>
+            <div class="btn-row">
+                <button class="btn btn-success" id="exportBtn">导出 Excel</button>
+                <button class="btn btn-secondary" id="importBtn">导入文件</button>
+                <input type="file" id="importFileInput" accept=".json,.xls" style="display:none;">
+            </div>
+        </div>
+    </div>
+    <script>
+        (function() {
+            // ========= 访问密钥，自行修改这里 =========
+            const PASSWORD = "2008";
+            const STORAGE_KEY = 'familyFinanceRecords';
 
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const record = {
-        type: typeSelect.value,
-        amount: parseFloat(amountInput.value),
-        category: categorySelect.value,
-        record_date: dateInput.value,
-        note: noteInput.value.trim(),
-        user_id: currentUser.id
-    };
-    if (!record.amount || record.amount <= 0) { alert('请输入正确的金额'); return; }
-    if (!record.record_date) { alert('请选择日期'); return; }
-    await addRecord(record);
-    amountInput.value = '';
-    noteInput.value = '';
-    alert('记录已保存');
-});
-typeSelect.addEventListener('change', updateCategoryOptions);
-filterType.addEventListener('change', renderRecords);
-filterMonth.addEventListener('change', renderRecords);
-clearFilterBtn.addEventListener('click', () => {
-    filterType.value = 'all';
-    filterMonth.value = '';
-    renderRecords();
-});
+            const loginMask = document.getElementById('loginMask');
+            const appWrap = document.getElementById('appWrap');
+            const keyInput = document.getElementById('keyInput');
+            const loginBtn = document.getElementById('loginBtn');
 
-setDefaultDate();
-updateCategoryOptions();
-</script>
+            // ---------- 分类配置 ----------
+            const CATEGORIES = {
+                income: ['工资', '奖金', '投资收益', '兼职', '红包', '其他'],
+                expense: ['餐饮', '购物', '交通', '住房', '水电煤', '娱乐', '医疗', '教育', '通讯', '其他']
+            };
+            // ---------- DOM 元素 ----------
+            const form = document.getElementById('recordForm');
+            const typeSelect = document.getElementById('type');
+            const amountInput = document.getElementById('amount');
+            const categorySelect = document.getElementById('category');
+            const dateInput = document.getElementById('date');
+            const noteInput = document.getElementById('note');
+            const recordsContainer = document.getElementById('recordsContainer');
+            const categorySummaryEl = document.getElementById('categorySummary');
+            const totalIncomeEl = document.getElementById('totalIncome');
+            const totalExpenseEl = document.getElementById('totalExpense');
+            const balanceEl = document.getElementById('balance');
+            const filterType = document.getElementById('filterType');
+            const filterMonth = document.getElementById('filterMonth');
+            const clearFilterBtn = document.getElementById('clearFilterBtn');
+            const expenseChartEl = document.getElementById('expenseChart');
+            const exportBtn = document.getElementById('exportBtn');
+            const importBtn = document.getElementById('importBtn');
+            const importFileInput = document.getElementById('importFileInput');
+
+            let records = [];
+
+            // 登录校验
+            function doLogin(){
+                const inputKey = keyInput.value.trim();
+                if(inputKey === PASSWORD){
+                    loginMask.classList.add('hidden');
+                    appWrap.classList.remove('hidden');
+                    initApp();
+                }else{
+                    alert("密钥错误，请重新输入");
+                    keyInput.value = "";
+                    keyInput.focus();
+                }
+            }
+            loginBtn.addEventListener('click', doLogin);
+            keyInput.addEventListener('keydown', e=>{
+                if(e.key === 'Enter') doLogin();
+            });
+
+            // ---------- 数据存储 ----------
+            function loadRecords() {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    try {
+                        records = JSON.parse(stored);
+                        if (!Array.isArray(records)) records = [];
+                    } catch (e) {
+                        console.error('解析存储数据失败', e);
+                        records = [];
+                    }
+                } else {
+                    // 首次打开无示例数据
+                    records = [];
+                    saveRecords();
+                }
+            }
+            function saveRecords() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            }
+
+            // ---------- 工具函数 ----------
+            function formatMoney(value) {
+                return '¥' + Number(value).toFixed(2);
+            }
+            function getCategoryOptions(type) {
+                return CATEGORIES[type] || [];
+            }
+            function updateCategoryOptions() {
+                const currentType = typeSelect.value;
+                const options = getCategoryOptions(currentType);
+                const currentCategory = categorySelect.value;
+                categorySelect.innerHTML = '';
+                options.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    categorySelect.appendChild(option);
+                });
+                if (options.includes(currentCategory)) {
+                    categorySelect.value = currentCategory;
+                } else {
+                    categorySelect.value = options[0];
+                }
+            }
+            function setDefaultDate() {
+                const today = new Date().toISOString().slice(0, 10);
+                dateInput.value = today;
+            }
+            function getFilteredRecords() {
+                const typeFilter = filterType.value;
+                const monthFilter = filterMonth.value;
+                return records.filter(record => {
+                    if (typeFilter !== 'all' && record.type !== typeFilter) return false;
+                    if (monthFilter) {
+                        const recordMonth = record.date ? record.date.slice(0, 7) : '';
+                        if (recordMonth !== monthFilter) return false;
+                    }
+                    return true;
+                });
+            }
+            function computeSummary() {
+                let totalIncome = 0;
+                let totalExpense = 0;
+                records.forEach(record => {
+                    if (record.type === 'income') {
+                        totalIncome += Number(record.amount) || 0;
+                    } else {
+                        totalExpense += Number(record.amount) || 0;
+                    }
+                });
+                const balance = totalIncome - totalExpense;
+                return { totalIncome, totalExpense, balance };
+            }
+            function updateSummaryCards() {
+                const { totalIncome, totalExpense, balance } = computeSummary();
+                totalIncomeEl.textContent = formatMoney(totalIncome);
+                totalExpenseEl.textContent = formatMoney(totalExpense);
+                balanceEl.textContent = formatMoney(balance);
+            }
+            function renderRecords() {
+                const filtered = getFilteredRecords();
+                if (filtered.length === 0) {
+                    recordsContainer.innerHTML = '<div class="empty-state">没有符合条件的记录</div>';
+                    return;
+                }
+                const sorted = [...filtered].sort((a, b) => (a.date < b.date ? 1 : -1));
+                const html = sorted.map(record => {
+                    const typeClass = record.type === 'income' ? 'income' : 'expense';
+                    const amountSign = record.type === 'income' ? '+' : '-';
+                    return `
+                        <li class="record-item">
+                            <div class="record-info">
+                                <div class="record-category">${escapeHtml(record.category)}</div>
+                                <div class="record-date">${escapeHtml(record.date || '')}</div>
+                                ${record.note ? `<div class="record-note">${escapeHtml(record.note)}</div>` : ''}
+                            </div>
+                            <div class="record-amount ${typeClass}">${amountSign}${formatMoney(record.amount)}</div>
+                            <div class="record-actions">
+                                <button class="btn btn-danger btn-sm" onclick="deleteRecord('${record.id}')">删除</button>
+                            </div>
+                        </li>
+                    `;
+                }).join('');
+                recordsContainer.innerHTML = `<ul class="records-list">${html}</ul>`;
+            }
+            function renderCategorySummary() {
+                const summary = {};
+                records.forEach(record => {
+                    if (!summary[record.type]) summary[record.type] = {};
+                    if (!summary[record.type][record.category]) summary[record.type][record.category] = 0;
+                    summary[record.type][record.category] += Number(record.amount) || 0;
+                });
+                let html = '';
+                const typeNames = { income: '收入', expense: '支出' };
+                for (const type of ['income', 'expense']) {
+                    if (summary[type]) {
+                        html += `<div style="margin-bottom:10px;"><strong>${typeNames[type]}</strong></div>`;
+                        html += '<div class="category-summary">';
+                        const categories = Object.entries(summary[type]).sort((a, b) => b[1] - a[1]);
+                        categories.forEach(([cat, amt]) => {
+                            html += `<span class="category-chip ${type}">${escapeHtml(cat)} <span class="amount">${formatMoney(amt)}</span></span>`;
+                        });
+                        html += '</div>';
+                    }
+                }
+                if (!html) html = '<div class="empty-state">暂无数据</div>';
+                categorySummaryEl.innerHTML = html;
+            }
+            function renderExpenseChart() {
+                const expenseSummary = {};
+                getFilteredRecords().forEach(record => {
+                    if (record.type !== 'expense') return;
+                    expenseSummary[record.category] = (expenseSummary[record.category] || 0) + (Number(record.amount) || 0);
+                });
+                const categories = Object.entries(expenseSummary).sort((a, b) => b[1] - a[1]);
+                const totalExpense = categories.reduce((sum, [, amount]) => sum + amount, 0);
+                if (categories.length === 0) {
+                    expenseChartEl.innerHTML = '<div class="empty-state">暂无支出数据</div>';
+                    return;
+                }
+                const maxAmount = categories[0][1];
+                const bars = categories.map(([category, amount]) => `
+                    <div class="expense-bar-row">
+                        <span>${escapeHtml(category)}</span>
+                        <div class="expense-bar-track">
+                            <div class="expense-bar-fill" style="width:${(amount / maxAmount) * 100}%"></div>
+                        </div>
+                        <span class="expense-bar-amount">${formatMoney(amount)}</span>
+                    </div>
+                `).join('');
+                expenseChartEl.innerHTML = `
+                    <div class="expense-chart-title">
+                        <strong>支出分类</strong>
+                        <span class="expense-chart-total">合计 ${formatMoney(totalExpense)}</span>
+                    </div>
+                    <div class="expense-bars">${bars}</div>
+                `;
+            }
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            function refreshUI() {
+                updateCategoryOptions();
+                updateSummaryCards();
+                renderRecords();
+                renderExpenseChart();
+                renderCategorySummary();
+            }
+            window.deleteRecord = function(id) {
+                if (!confirm('确定要删除这条记录吗？')) return;
+                records = records.filter(record => String(record.id) !== String(id));
+                saveRecords();
+                refreshUI();
+            };
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const type = typeSelect.value;
+                const amount = parseFloat(amountInput.value);
+                const category = categorySelect.value;
+                const date = dateInput.value;
+                const note = noteInput.value.trim();
+                if (!amount || amount <= 0) {
+                    alert('请输入正确的金额');
+                    return;
+                }
+                if (!date) {
+                    alert('请选择日期');
+                    return;
+                }
+                const newRecord = {
+                    id: Date.now().toString(),
+                    type: type,
+                    amount: amount,
+                    category: category,
+                    date: date,
+                    note: note
+                };
+                records.push(newRecord);
+                saveRecords();
+                amountInput.value = '';
+                noteInput.value = '';
+                setDefaultDate();
+                updateCategoryOptions();
+                refreshUI();
+                alert('记录已保存');
+            });
+            typeSelect.addEventListener('change', updateCategoryOptions);
+            filterType.addEventListener('change', function() {
+                renderRecords();
+                renderExpenseChart();
+            });
+            filterMonth.addEventListener('change', function() {
+                renderRecords();
+                renderExpenseChart();
+            });
+            clearFilterBtn.addEventListener('click', function() {
+                filterType.value = 'all';
+                filterMonth.value = '';
+                renderRecords();
+                renderExpenseChart();
+            });
+            exportBtn.addEventListener('click', function() {
+                const rows = records.map(record => `
+                    <tr>
+                        <td>${escapeHtml(record.id)}</td>
+                        <td>${record.type === 'income' ? '收入' : '支出'}</td>
+                        <td>${escapeHtml(record.amount)}</td>
+                        <td>${escapeHtml(record.category)}</td>
+                        <td>${escapeHtml(record.date || '')}</td>
+                        <td>${escapeHtml(record.note || '')}</td>
+                    </tr>
+                `).join('');
+                const table = `\ufeff<table border="1">
+                    <tr><th>编号</th><th>类型</th><th>金额</th><th>分类</th><th>日期</th><th>备注</th></tr>
+                    ${rows}
+                </table>`;
+                const blob = new Blob([table], { type: 'application/vnd.ms-excel;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '家庭财务台账_' + new Date().toISOString().slice(0, 10) + '.xls';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            importBtn.addEventListener('click', function() {
+                importFileInput.click();
+            });
+            importFileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    try {
+                        const fileName = file.name.toLowerCase();
+                        const imported = fileName.endsWith('.json')
+                            ? JSON.parse(ev.target.result)
+                            : parseExcelRecords(ev.target.result);
+                        if (!Array.isArray(imported)) throw new Error('不是有效的记录文件');
+                        for (const rec of imported) {
+                            if (!rec.id || !['income', 'expense'].includes(rec.type) ||
+                                !Number.isFinite(Number(rec.amount)) || Number(rec.amount) <= 0 ||
+                                !rec.category || !rec.date) {
+                                throw new Error('记录字段不完整');
+                            }
+                        }
+                        if (confirm(`导入将覆盖当前 ${records.length} 条记录，共导入 ${imported.length} 条，是否继续？`)) {
+                            records = imported;
+                            saveRecords();
+                            refreshUI();
+                            alert('导入成功');
+                        }
+                    } catch (err) {
+                        alert('导入失败：' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            });
+            function parseExcelRecords(content) {
+                const documentFromFile = new DOMParser().parseFromString(content, 'text/html');
+                const rows = Array.from(documentFromFile.querySelectorAll('table tr')).slice(1);
+                if (rows.length === 0) throw new Error('Excel 文件中没有找到记录表格');
+                return rows.map((row, index) => {
+                    const cells = Array.from(row.querySelectorAll('th, td')).map(cell => cell.textContent.trim());
+                    const typeText = cells[1];
+                    return {
+                        id: cells[0] || `${Date.now()}-${index}`,
+                        type: typeText === '收入' || typeText === 'income' ? 'income' : 'expense',
+                        amount: cells[2],
+                        category: cells[3],
+                        date: cells[4],
+                        note: cells[5] || ''
+                    };
+                });
+            }
+
+            function initApp(){
+                loadRecords();
+                setDefaultDate();
+                updateCategoryOptions();
+                refreshUI();
+            }
+        })();
+    </script>
 </body>
 </html>
