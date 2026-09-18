@@ -217,6 +217,7 @@ const noteInput = document.getElementById('note');
 const recordsContainer = document.getElementById('recordsContainer');
 const filterType = document.getElementById('filterType');
 const filterMonth = document.getElementById('filterMonth');
+const clearFilterBtn = document.getElementById('clearFilterBtn'); // 修复：补充获取清除按钮DOM
 // ========== 简化登录逻辑：输入访问秘钥自动登录固定Supabase账号 ==========
 document.getElementById('loginBtn').addEventListener('click', signIn);
 // 回车登录
@@ -350,7 +351,8 @@ form.addEventListener('submit', async (e) => {
         amount: parseFloat(amountInput.value),
         category: categorySelect.value,
         record_date: dateInput.value,
-        note: noteInput.value.trim()
+        note: noteInput.value.trim(),
+        user_id: currentUser.id // 修复RLS：增加user_id
     };
     if (!record.amount || record.amount <= 0) { alert('请输入正确的金额'); return; }
     if (!record.record_date) { alert('请选择日期'); return; }
