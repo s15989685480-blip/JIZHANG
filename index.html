@@ -6,61 +6,66 @@
     <title>家庭财务台账</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background: #f5f7fa; padding: 20px; }
-        .login-box { max-width: 350px; margin: 100px auto; background: #fff; padding: 30px; border-radius: 12px; text-align: center; }
-        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #2c7be5; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+        body { font-family: sans-serif; background: #f5f7fa; padding: 20px; margin: 0; }
+        .login-box { max-width: 350px; margin: 100px auto; background: #fff; padding: 30px; border-radius: 12px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+        button { width: 100%; padding: 12px; background: #2c7be5; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; }
         .hidden { display: none; }
-        .card { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 15px; }
+        .card { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .summary { display: flex; gap: 10px; margin-bottom: 15px; }
-        .summary div { flex: 1; background: #fff; padding: 15px; border-radius: 8px; text-align: center; }
+        .summary > div { flex: 1; background: #fff; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .red { color: #f5222d; }
+        .green { color: #00a854; }
+        h1 { text-align: center; color: #2c7be5; margin-bottom: 20px; }
+        .err { color: red; font-size: 13px; margin-top: 10px; }
     </style>
 </head>
 <body>
     <!-- 登录页 -->
     <div id="loginPage">
         <div class="login-box">
-            <h2>家庭财务台账</h2>
-            <p>输入访问秘钥</p>
+            <h2>📒 家庭财务台账</h2>
+            <p style="color:#666;font-size:14px;">输入访问秘钥</p>
             <input type="password" id="pwdInput" placeholder="访问秘钥">
             <button onclick="doLogin()">登录</button>
-            <p id="errMsg" style="color:red;font-size:13px;"></p>
+            <p id="errMsg" class="err"></p>
         </div>
     </div>
 
     <!-- 主页面 -->
     <div id="mainPage" class="hidden">
-        <h1 style="text-align:center;color:#2c7be5;">家庭财务台账</h1>
+        <h1>📒 家庭财务台账</h1>
         <div class="summary">
-            <div><small>总收入</small><br><b id="totalIncome">¥0</b></div>
-            <div><small>总支出</small><br><b id="totalExpense" style="color:red;">¥0</b></div>
-            <div><small>结余</small><br><b id="balance">¥0</b></div>
+            <div><small style="color:#666;">总收入</small><br><b class="green" id="totalIncome">¥0</b></div>
+            <div><small style="color:#666;">总支出</small><br><b class="red" id="totalExpense">¥0</b></div>
+            <div><small style="color:#666;">结余</small><br><b id="balance">¥0</b></div>
         </div>
         <div class="card">
-            <h3>添加账目</h3>
-            <select id="type" style="width:100%;padding:8px;margin:5px 0;">
+            <h3 style="margin-top:0;">➕ 添加账目</h3>
+            <select id="type" style="width:100%;padding:10px;margin:5px 0;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;">
                 <option value="expense">支出</option>
                 <option value="income">收入</option>
             </select>
-            <input type="number" id="amount" placeholder="金额">
-            <input type="text" id="category" placeholder="分类（如：餐饮/工资）">
+            <input type="number" id="amount" placeholder="金额（元）">
+            <input type="text" id="category" placeholder="分类（如：餐饮、工资）">
             <input type="date" id="recordDate">
             <input type="text" id="note" placeholder="备注（可选）">
-            <button onclick="addRecord()">保存</button>
+            <button onclick="addRecord()">保存记录</button>
         </div>
         <div class="card">
-            <h3>记录列表</h3>
+            <h3 style="margin-top:0;">📋 记录列表</h3>
             <div id="recordList"></div>
         </div>
-        <button onclick="logout()" style="width:auto;padding:8px 20px;">退出</button>
+        <button onclick="logout()" style="width:auto;padding:8px 20px;background:#909399;">退出登录</button>
     </div>
 
 <script>
-// ========== 只在这里写一次Supabase配置！==========
+// ========== 配置区（只写这一次！）==========
 const SUPABASE_URL = "https://sauzljctykhobanljsam.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
-const ACCESS_KEY = "123456"; // 网页访问秘钥
+const ACCESS_KEY = "123456"; // 你的访问秘钥
 
+// 创建Supabase客户端（整个文件只有这一处！）
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
 });
@@ -71,7 +76,7 @@ let records = [];
 function doLogin() {
     const pwd = document.getElementById('pwdInput').value.trim();
     if (pwd !== ACCESS_KEY) {
-        document.getElementById('errMsg').textContent = '秘钥错误';
+        document.getElementById('errMsg').textContent = '秘钥错误，请重新输入';
         return;
     }
     document.getElementById('loginPage').classList.add('hidden');
@@ -104,11 +109,12 @@ async function loadRecords() {
 async function addRecord() {
     const type = document.getElementById('type').value;
     const amount = parseFloat(document.getElementById('amount').value);
-    const category = document.getElementById('category').value;
+    const category = document.getElementById('category').value.trim();
     const recordDate = document.getElementById('recordDate').value;
-    const note = document.getElementById('note').value;
+    const note = document.getElementById('note').value.trim();
 
-    if (!amount || amount <= 0) { alert('请输入正确金额'); return; }
+    if (!amount || amount <= 0) { alert('请输入正确的金额'); return; }
+    if (!category) { alert('请输入分类'); return; }
     if (!recordDate) { alert('请选择日期'); return; }
 
     const { error } = await supabase
@@ -117,12 +123,15 @@ async function addRecord() {
 
     if (error) { alert('保存失败: ' + error.message); return; }
     alert('保存成功');
+    document.getElementById('amount').value = '';
+    document.getElementById('category').value = '';
+    document.getElementById('note').value = '';
     loadRecords();
 }
 
 // 删除记录
 async function delRecord(id) {
-    if (!confirm('确定删除？')) return;
+    if (!confirm('确定删除这条记录？')) return;
     await supabase.from('account_records').delete().eq('id', id);
     loadRecords();
 }
@@ -141,19 +150,23 @@ function renderSummary() {
 
 // 渲染列表
 function renderList() {
+    if (records.length === 0) {
+        document.getElementById('recordList').innerHTML = '<p style="color:#999;text-align:center;padding:20px;">暂无记录，请添加</p>';
+        return;
+    }
     const html = records.map(r => `
-        <div style="padding:10px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;">
+        <div style="padding:12px 0;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
             <div>
                 <b>${r.category}</b><br>
-                <small>${r.record_date} ${r.note || ''}</small>
+                <small style="color:#999;">${r.record_date} ${r.note ? '· ' + r.note : ''}</small>
             </div>
             <div>
-                <span style="color:${r.type === 'income' ? 'green' : 'red'}">${r.type === 'income' ? '+' : '-'}¥${r.amount}</span>
-                <button onclick="delRecord('${r.id}')" style="margin-left:10px;padding:2px 8px;font-size:12px;">删</button>
+                <span class="${r.type === 'income' ? 'green' : 'red'}">${r.type === 'income' ? '+' : '-'}¥${r.amount}</span>
+                <button onclick="delRecord('${r.id}')" style="margin-left:10px;padding:2px 8px;font-size:12px;width:auto;background:#f5222d;">删</button>
             </div>
         </div>
     `).join('');
-    document.getElementById('recordList').innerHTML = html || '<p style="color:#999;">暂无记录</p>';
+    document.getElementById('recordList').innerHTML = html;
 }
 
 // 初始化日期
