@@ -467,11 +467,11 @@
                 if (!recordDate) { alert('请选择日期'); return; }
 
                 const newRecord = {
-                    id: Date.now().toString(),
+                    // ✅ 去掉手动生成的id，让数据库自动生成uuid
                     type: type,
                     amount: amount,
                     category: category,
-                    record_date: recordDate,  // ✅ 改成 record_date
+                    record_date: recordDate,
                     note: note
                 };
 
@@ -541,7 +541,11 @@
                         }
                         if (confirm(`导入将覆盖云端全部 ${records.length} 条记录，共导入 ${imported.length} 条，是否继续？`)) {
                             for (const rec of records) await deleteRecordFromCloud(rec.id);
-                            for (const rec of imported) await addRecordToCloud(rec);
+                            for (const rec of imported) {
+                                // 导入时去掉id，让数据库重新生成
+                                const { id, ...rest } = rec;
+                                await addRecordToCloud(rest);
+                            }
                             await loadRecords();
                             alert('导入成功');
                         }
