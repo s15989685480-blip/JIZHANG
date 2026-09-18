@@ -2,377 +2,162 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家庭财务台账</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root {
-            --primary: #2c7be5;
-            --success: #00a854;
-            --danger: #f5222d;
-            --warning: #faad14;
-            --bg: #f5f7fa;
-            --card-bg: #ffffff;
-            --text: #1f2d3d;
-            --text-secondary: #5e6d82;
-            --border: #e4e7ed;
-            --radius: 12px;
-            --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-            background: var(--bg); color: var(--text); line-height: 1.5;
-            padding: 16px; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start;
-        }
-        .app { width: 100%; max-width: 720px; margin: 0 auto; }
-        h1 { font-size: 1.8rem; font-weight: 700; text-align: center; margin-bottom: 16px; color: var(--primary); }
-        /* 登录弹窗 */
-        .login-mask {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.65);
-            display: flex; justify-content: center; align-items: center; z-index: 9999;
-        }
-        .login-box {
-            background: #fff; border-radius: var(--radius); padding: 28px 24px;
-            width: 90%; max-width: 360px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-        }
-        .login-box h2 { text-align:center; margin-bottom:16px; color:var(--primary); }
-        .login-box input {
-            width:100%; padding:12px 14px; border:1px solid var(--border);
-            border-radius:8px; font-size:1rem; margin-bottom:14px;
-        }
-        .login-box .tip { font-size:0.8rem; color:var(--text-secondary); margin-bottom:12px; text-align:center; }
-        .login-box .err { color:var(--danger); font-size:0.85rem; margin-bottom:10px; text-align:center; }
-        .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-        .summary-card {
-            background: var(--card-bg); border-radius: var(--radius); padding: 16px 12px;
-            box-shadow: var(--shadow); text-align: center;
-        }
-        .summary-card .label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px; }
-        .summary-card .value { font-size: 1.3rem; font-weight: 700; }
-        .summary-card.income .value { color: var(--success); }
-        .summary-card.expense .value { color: var(--danger); }
-        .summary-card.balance .value { color: var(--primary); }
-        .card {
-            background: var(--card-bg); border-radius: var(--radius);
-            box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px;
-        }
-        .card h2 { font-size: 1.1rem; margin-bottom: 12px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-        .form-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-        .form-group { flex: 1 1 calc(50% - 10px); min-width: 140px; display: flex; flex-direction: column; }
-        .form-group.full-width { flex: 1 1 100%; }
-        label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
-        input, select, textarea {
-            padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
-            font-size: 0.95rem; outline: none; background: #fff; width: 100%;
-        }
-        input:focus, select:focus, textarea:focus { border-color: var(--primary); }
-        .btn {
-            display: inline-block; padding: 10px 20px; border: none; border-radius: 8px;
-            font-size: 0.95rem; font-weight: 600; cursor: pointer; text-align: center;
-            background: var(--primary); color: white; width: 100%;
-        }
-        .btn:hover { opacity: 0.85; }
-        .btn-secondary { background: #909399; }
-        .btn-danger { background: var(--danger); }
-        .btn-sm { padding: 6px 12px; font-size: 0.8rem; width: auto; }
-        .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-        .filter-bar select, .filter-bar input { flex: 1; min-width: 120px; }
-        .records-list { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; }
-        .record-item {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 8px; border-bottom: 1px solid var(--border); gap: 8px; flex-wrap: wrap;
-        }
-        .record-item:last-child { border-bottom: none; }
-        .record-info { flex: 1; min-width: 180px; }
-        .record-category { font-weight: 600; font-size: 0.95rem; }
-        .record-date { font-size: 0.8rem; color: var(--text-secondary); }
-        .record-note { font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px; word-break: break-all; }
-        .record-amount { font-weight: 700; font-size: 1rem; white-space: nowrap; }
-        .record-amount.income { color: var(--success); }
-        .record-amount.expense { color: var(--danger); }
-        .empty-state { text-align: center; color: var(--text-secondary); padding: 24px 0; }
-        .hidden { display: none !important; }
-        .user-bar { text-align: right; margin-bottom: 12px; font-size: 0.9rem; color: var(--text-secondary); }
-        @media (max-width: 480px) {
-            body { padding: 10px; }
-            .summary-cards { grid-template-columns: 1fr; }
-            .form-group { flex: 1 1 100%; }
-            .record-item { align-items: flex-start; flex-direction: column; }
-        }
+        body { font-family: sans-serif; background: #f5f7fa; padding: 20px; }
+        .login-box { max-width: 350px; margin: 100px auto; background: #fff; padding: 30px; border-radius: 12px; text-align: center; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #2c7be5; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+        .hidden { display: none; }
+        .card { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 15px; }
+        .summary { display: flex; gap: 10px; margin-bottom: 15px; }
+        .summary div { flex: 1; background: #fff; padding: 15px; border-radius: 8px; text-align: center; }
     </style>
 </head>
 <body>
-    <!-- 简化登录弹窗：只保留秘钥输入 -->
-    <div id="loginMask" class="login-mask">
+    <!-- 登录页 -->
+    <div id="loginPage">
         <div class="login-box">
-            <h2>📒 家庭财务台账</h2>
-            <div class="tip">输入访问秘钥，云端同步数据</div>
-            <div id="loginErr" class="err hidden"></div>
-            <input id="pwdInput" type="password" placeholder="访问秘钥">
-            <button id="loginBtn" class="btn">登录</button>
+            <h2>家庭财务台账</h2>
+            <p>输入访问秘钥</p>
+            <input type="password" id="pwdInput" placeholder="访问秘钥">
+            <button onclick="doLogin()">登录</button>
+            <p id="errMsg" style="color:red;font-size:13px;"></p>
         </div>
     </div>
-    <div class="app hidden" id="appWrap">
-        <div class="user-bar">
-            <span id="userEmail"></span>
-            <button class="btn btn-secondary btn-sm" onclick="signOut()">退出</button>
+
+    <!-- 主页面 -->
+    <div id="mainPage" class="hidden">
+        <h1 style="text-align:center;color:#2c7be5;">家庭财务台账</h1>
+        <div class="summary">
+            <div><small>总收入</small><br><b id="totalIncome">¥0</b></div>
+            <div><small>总支出</small><br><b id="totalExpense" style="color:red;">¥0</b></div>
+            <div><small>结余</small><br><b id="balance">¥0</b></div>
         </div>
-        <h1>📒 家庭财务台账</h1>
-        <!-- 汇总卡片 -->
-        <div class="summary-cards">
-            <div class="summary-card income">
-                <div class="label">总收入</div>
-                <div class="value" id="totalIncome">¥0.00</div>
-            </div>
-            <div class="summary-card expense">
-                <div class="label">总支出</div>
-                <div class="value" id="totalExpense">¥0.00</div>
-            </div>
-            <div class="summary-card balance">
-                <div class="label">结余</div>
-                <div class="value" id="balance">¥0.00</div>
-            </div>
-        </div>
-        <!-- 添加记录 -->
         <div class="card">
-            <h2>➕ 添加账目</h2>
-            <form id="recordForm">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>类型</label>
-                        <select id="type" required>
-                            <option value="expense">支出</option>
-                            <option value="income">收入</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>金额（元）</label>
-                        <input type="number" id="amount" step="0.01" min="0.01" placeholder="0.00" required>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>分类</label>
-                        <select id="category" required></select>
-                    </div>
-                    <div class="form-group">
-                        <label>日期</label>
-                        <input type="date" id="date" required>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group full-width">
-                        <label>备注（可选）</label>
-                        <textarea id="note" placeholder="例如：买菜、工资等"></textarea>
-                    </div>
-                </div>
-                <button type="submit" class="btn">保存记录</button>
-            </form>
+            <h3>添加账目</h3>
+            <select id="type" style="width:100%;padding:8px;margin:5px 0;">
+                <option value="expense">支出</option>
+                <option value="income">收入</option>
+            </select>
+            <input type="number" id="amount" placeholder="金额">
+            <input type="text" id="category" placeholder="分类（如：餐饮/工资）">
+            <input type="date" id="recordDate">
+            <input type="text" id="note" placeholder="备注（可选）">
+            <button onclick="addRecord()">保存</button>
         </div>
-        <!-- 记录明细 -->
         <div class="card">
-            <h2>📋 记录明细</h2>
-            <div class="filter-bar">
-                <select id="filterType">
-                    <option value="all">全部类型</option>
-                    <option value="income">仅收入</option>
-                    <option value="expense">仅支出</option>
-                </select>
-                <input type="month" id="filterMonth">
-                <button class="btn btn-secondary btn-sm" id="clearFilterBtn">清除</button>
-            </div>
-            <div id="recordsContainer">
-                <div class="empty-state">暂无记录，请添加</div>
-            </div>
+            <h3>记录列表</h3>
+            <div id="recordList"></div>
         </div>
+        <button onclick="logout()" style="width:auto;padding:8px 20px;">退出</button>
     </div>
+
 <script>
-// ========== Supabase配置 ==========
-const supabaseUrl = "https://sauzljctykhobanljsam.supabase.co";
-const supabaseAnonKey = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
-const FIX_EMAIL = "376035531@qq.com";
-const FIX_PASSWORD = "123456";
-const ACCESS_KEY = "123456";
+// ========== 只在这里写一次Supabase配置！==========
+const SUPABASE_URL = "https://sauzljctykhobanljsam.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
+const ACCESS_KEY = "123456"; // 网页访问秘钥
 
-const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-
-const CATEGORIES = {
-    income: ['工资', '奖金', '投资收益', '兼职', '红包', '其他'],
-    expense: ['餐饮', '购物', '交通', '住房', '水电煤', '娱乐', '医疗', '教育', '通讯', '其他']
-};
-let currentUser = null;
-let records = [];
-
-// DOM元素
-const loginMask = document.getElementById('loginMask');
-const appWrap = document.getElementById('appWrap');
-const loginErr = document.getElementById('loginErr');
-const form = document.getElementById('recordForm');
-const typeSelect = document.getElementById('type');
-const amountInput = document.getElementById('amount');
-const categorySelect = document.getElementById('category');
-const dateInput = document.getElementById('date');
-const noteInput = document.getElementById('note');
-const recordsContainer = document.getElementById('recordsContainer');
-const filterType = document.getElementById('filterType');
-const filterMonth = document.getElementById('filterMonth');
-const clearFilterBtn = document.getElementById('clearFilterBtn');
-
-// 登录按钮事件
-document.getElementById('loginBtn').addEventListener('click', signIn);
-document.getElementById('pwdInput').addEventListener('keydown', e=>{
-    if(e.key === 'Enter') signIn();
-})
-
-async function signIn() {
-    const inputKey = document.getElementById('pwdInput').value.trim();
-    if (!inputKey) { showErr('请输入访问秘钥'); return; }
-    if(inputKey !== ACCESS_KEY){
-        showErr('秘钥错误，请重新输入');
-        return;
-    }
-    const { data, error } = await supabase.auth.signInWithPassword({ email:FIX_EMAIL, password:FIX_PASSWORD });
-    if (error) showErr(error.message);
-}
-function showErr(msg) {
-    loginErr.textContent = msg;
-    loginErr.classList.remove('hidden');
-}
-async function signOut() {
-    await supabase.auth.signOut();
-}
-
-supabase.auth.onAuthStateChange(async (event, session) => {
-    if (session) {
-        currentUser = session.user;
-        document.getElementById('userEmail').textContent = currentUser.email;
-        loginMask.classList.add('hidden');
-        appWrap.classList.remove('hidden');
-        await loadRecords();
-    } else {
-        currentUser = null;
-        loginMask.classList.remove('hidden');
-        appWrap.classList.add('hidden');
-    }
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false }
 });
 
+let records = [];
+
+// 登录
+function doLogin() {
+    const pwd = document.getElementById('pwdInput').value.trim();
+    if (pwd !== ACCESS_KEY) {
+        document.getElementById('errMsg').textContent = '秘钥错误';
+        return;
+    }
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('mainPage').classList.remove('hidden');
+    loadRecords();
+}
+
+function logout() {
+    document.getElementById('mainPage').classList.add('hidden');
+    document.getElementById('loginPage').classList.remove('hidden');
+}
+
+// 加载数据
 async function loadRecords() {
     const { data, error } = await supabase
         .from('account_records')
         .select('*')
         .order('record_date', { ascending: false });
-    if (error) { console.error(error); return; }
-    records = data || [];
-    refreshUI();
-}
-async function addRecord(record) {
-    const { data, error } = await supabase
-        .from('account_records')
-        .insert([record]);
-    if (error) { alert('保存失败: ' + error.message); return; }
-    await loadRecords();
-}
-async function deleteRecord(id) {
-    if (!confirm('确定要删除这条记录吗？')) return;
-    const { error } = await supabase
-        .from('account_records')
-        .delete()
-        .eq('id', id);
-    if (error) { alert('删除失败: ' + error.message); return; }
-    await loadRecords();
-}
-
-function formatMoney(v) { return '¥' + Number(v).toFixed(2); }
-function updateCategoryOptions() {
-    const options = CATEGORIES[typeSelect.value] || [];
-    categorySelect.innerHTML = options.map(c => `<option value="${c}">${c}</option>`).join('');
-}
-function setDefaultDate() {
-    dateInput.value = new Date().toISOString().slice(0, 10);
-}
-function getFilteredRecords() {
-    const t = filterType.value;
-    const m = filterMonth.value;
-    return records.filter(r => {
-        if (t !== 'all' && r.type !== t) return false;
-        if (m && (r.record_date || '').slice(0, 7) !== m) return false;
-        return true;
-    });
-}
-function computeSummary() {
-    let inc = 0, exp = 0;
-    records.forEach(r => {
-        if (r.type === 'income') inc += Number(r.amount) || 0;
-        else exp += Number(r.amount) || 0;
-    });
-    return { inc, exp, balance: inc - exp };
-}
-function renderSummary() {
-    const { inc, exp, balance } = computeSummary();
-    document.getElementById('totalIncome').textContent = formatMoney(inc);
-    document.getElementById('totalExpense').textContent = formatMoney(exp);
-    document.getElementById('balance').textContent = formatMoney(balance);
-}
-function renderRecords() {
-    const filtered = getFilteredRecords();
-    if (filtered.length === 0) {
-        recordsContainer.innerHTML = '<div class="empty-state">没有符合条件的记录</div>';
+    
+    if (error) {
+        alert('加载失败: ' + error.message);
         return;
     }
-    const html = filtered.map(r => `
-        <li class="record-item">
-            <div class="record-info">
-                <div class="record-category">${escapeHtml(r.category)}</div>
-                <div class="record-date">${escapeHtml(r.record_date || '')}</div>
-                ${r.note ? `<div class="record-note">${escapeHtml(r.note)}</div>` : ''}
-            </div>
-            <div class="record-amount ${r.type}">${r.type === 'income' ? '+' : '-'}${formatMoney(r.amount)}</div>
-            <button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}')">删除</button>
-        </li>
-    `).join('');
-    recordsContainer.innerHTML = `<ul class="records-list">${html}</ul>`;
-}
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-function refreshUI() {
-    updateCategoryOptions();
+    records = data || [];
     renderSummary();
-    renderRecords();
+    renderList();
 }
 
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const record = {
-        type: typeSelect.value,
-        amount: parseFloat(amountInput.value),
-        category: categorySelect.value,
-        record_date: dateInput.value,
-        note: noteInput.value.trim(),
-        user_id: currentUser.id
-    };
-    if (!record.amount || record.amount <= 0) { alert('请输入正确的金额'); return; }
-    if (!record.record_date) { alert('请选择日期'); return; }
-    await addRecord(record);
-    amountInput.value = '';
-    noteInput.value = '';
-    alert('记录已保存');
-});
-typeSelect.addEventListener('change', updateCategoryOptions);
-filterType.addEventListener('change', renderRecords);
-filterMonth.addEventListener('change', renderRecords);
-clearFilterBtn.addEventListener('click', () => {
-    filterType.value = 'all';
-    filterMonth.value = '';
-    renderRecords();
-});
+// 添加记录
+async function addRecord() {
+    const type = document.getElementById('type').value;
+    const amount = parseFloat(document.getElementById('amount').value);
+    const category = document.getElementById('category').value;
+    const recordDate = document.getElementById('recordDate').value;
+    const note = document.getElementById('note').value;
 
-setDefaultDate();
-updateCategoryOptions();
+    if (!amount || amount <= 0) { alert('请输入正确金额'); return; }
+    if (!recordDate) { alert('请选择日期'); return; }
+
+    const { error } = await supabase
+        .from('account_records')
+        .insert([{ type, amount, category, record_date: recordDate, note }]);
+
+    if (error) { alert('保存失败: ' + error.message); return; }
+    alert('保存成功');
+    loadRecords();
+}
+
+// 删除记录
+async function delRecord(id) {
+    if (!confirm('确定删除？')) return;
+    await supabase.from('account_records').delete().eq('id', id);
+    loadRecords();
+}
+
+// 渲染汇总
+function renderSummary() {
+    let inc = 0, exp = 0;
+    records.forEach(r => {
+        if (r.type === 'income') inc += Number(r.amount);
+        else exp += Number(r.amount);
+    });
+    document.getElementById('totalIncome').textContent = '¥' + inc.toFixed(2);
+    document.getElementById('totalExpense').textContent = '¥' + exp.toFixed(2);
+    document.getElementById('balance').textContent = '¥' + (inc - exp).toFixed(2);
+}
+
+// 渲染列表
+function renderList() {
+    const html = records.map(r => `
+        <div style="padding:10px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;">
+            <div>
+                <b>${r.category}</b><br>
+                <small>${r.record_date} ${r.note || ''}</small>
+            </div>
+            <div>
+                <span style="color:${r.type === 'income' ? 'green' : 'red'}">${r.type === 'income' ? '+' : '-'}¥${r.amount}</span>
+                <button onclick="delRecord('${r.id}')" style="margin-left:10px;padding:2px 8px;font-size:12px;">删</button>
+            </div>
+        </div>
+    `).join('');
+    document.getElementById('recordList').innerHTML = html || '<p style="color:#999;">暂无记录</p>';
+}
+
+// 初始化日期
+document.getElementById('recordDate').value = new Date().toISOString().slice(0, 10);
 </script>
 </body>
 </html>
-
