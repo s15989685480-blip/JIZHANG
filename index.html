@@ -229,13 +229,16 @@
     </div>
     <script>
         (function() {
-            const PASSWORD = "2008";
+            // ========== 配置 ==========
+            const ACCESS_PASSWORD = "2008";  // 网页访问密钥
             const SUPABASE_URL = "https://sauzljctykhobanljsam.supabase.co";
             const SUPABASE_ANON_KEY = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
+            const SUPABASE_EMAIL = "376035531@qq.com";  // 固定Supabase账号
+            const SUPABASE_PASSWORD = "123456";          // 固定Supabase密码
             const TABLE_NAME = "account_records";
 
             const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-                auth: { persistSession: false, autoRefreshToken: false }
+                auth: { persistSession: true, autoRefreshToken: true }
             });
 
             const CATEGORIES = {
@@ -267,24 +270,47 @@
             const importFileInput = document.getElementById('importFileInput');
 
             let records = [];
+            let currentUser = null;
 
-            function doLogin() {
+            // ========== 登录逻辑 ==========
+            async function doLogin() {
                 const inputKey = keyInput.value.trim();
-                if (inputKey === PASSWORD) {
-                    loginMask.classList.add('hidden');
-                    appWrap.classList.remove('hidden');
-                    initApp();
-                } else {
+                if (inputKey !== ACCESS_PASSWORD) {
                     alert("密钥错误，请重新输入");
                     keyInput.value = "";
                     keyInput.focus();
+                    return;
                 }
+
+                // 密钥正确，自动登录Supabase固定账号
+                loginBtn.disabled = true;
+                loginBtn.textContent = "登录中...";
+
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: SUPABASE_EMAIL,
+                    password: SUPABASE_PASSWORD
+                });
+
+                loginBtn.disabled = false;
+                loginBtn.textContent = "确认进入";
+
+                if (error) {
+                    alert("云端登录失败：" + error.message);
+                    return;
+                }
+
+                currentUser = data.user;
+                loginMask.classList.add('hidden');
+                appWrap.classList.remove('hidden');
+                initApp();
             }
+
             loginBtn.addEventListener('click', doLogin);
             keyInput.addEventListener('keydown', e => {
                 if (e.key === 'Enter') doLogin();
             });
 
+            // ========== 数据操作 ==========
             async function loadRecords() {
                 recordsContainer.innerHTML = '<div class="loading">正在从云端加载数据...</div>';
                 const { data, error } = await supabase
@@ -310,6 +336,7 @@
                 if (error) throw error;
             }
 
+            // ========== 界面渲染 ==========
             function formatMoney(value) { return '¥' + Number(value).toFixed(2); }
             function getCategoryOptions(type) { return CATEGORIES[type] || []; }
             function updateCategoryOptions() {
@@ -467,12 +494,12 @@
                 if (!recordDate) { alert('请选择日期'); return; }
 
                 const newRecord = {
-                    // ✅ 去掉手动生成的id，让数据库自动生成uuid
                     type: type,
                     amount: amount,
                     category: category,
                     record_date: recordDate,
-                    note: note
+                    note: note,
+                    user_id: currentUser.id  // ✅ 带上当前登录用户的id
                 };
 
                 try {
@@ -542,8 +569,8 @@
                         if (confirm(`导入将覆盖云端全部 ${records.length} 条记录，共导入 ${imported.length} 条，是否继续？`)) {
                             for (const rec of records) await deleteRecordFromCloud(rec.id);
                             for (const rec of imported) {
-                                // 导入时去掉id，让数据库重新生成
                                 const { id, ...rest } = rec;
+                                rest.user_id = currentUser.id;
                                 await addRecordToCloud(rest);
                             }
                             await loadRecords();
