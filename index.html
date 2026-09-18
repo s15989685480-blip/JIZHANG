@@ -60,31 +60,47 @@
     </div>
 
 <script>
-// ========== 配置区（只写这一次！）==========
+// ========== 配置区 ==========
 const SUPABASE_URL = "https://sauzljctykhobanljsam.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
 const ACCESS_KEY = "123456"; // 你的访问秘钥
+const FIX_EMAIL = "376035531@qq.com"; // Supabase固定账号
+const FIX_PASSWORD = "123456"; // Supabase固定账号密码
 
-// 创建Supabase客户端（整个文件只有这一处！）
+// 创建Supabase客户端
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
 });
 
 let records = [];
 
-// 登录
-function doLogin() {
+// 登录：先验证本地秘钥，再自动登录Supabase账号
+async function doLogin() {
     const pwd = document.getElementById('pwdInput').value.trim();
     if (pwd !== ACCESS_KEY) {
         document.getElementById('errMsg').textContent = '秘钥错误，请重新输入';
         return;
     }
+    
+    // 关键步骤：自动登录Supabase账号，让RLS策略放行
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email: FIX_EMAIL,
+        password: FIX_PASSWORD
+    });
+    
+    if (error) {
+        document.getElementById('errMsg').textContent = '数据库登录失败: ' + error.message;
+        return;
+    }
+    
+    // 登录成功，进入主页面
     document.getElementById('loginPage').classList.add('hidden');
     document.getElementById('mainPage').classList.remove('hidden');
-    loadRecords();
+    await loadRecords();
 }
 
 function logout() {
+    supabase.auth.signOut();
     document.getElementById('mainPage').classList.add('hidden');
     document.getElementById('loginPage').classList.remove('hidden');
 }
