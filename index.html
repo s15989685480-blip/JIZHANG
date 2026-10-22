@@ -129,7 +129,9 @@
             .record-actions { align-self: flex-end; }
         }
     </style>
+    <!-- Supabase CDN 已停用（改为 Pantry 存储，不再需要）
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    -->
 </head>
 <body>
     <div id="loginMask" class="login-mask">
@@ -231,21 +233,31 @@
         (function() {
             // ========== 配置 ==========
             const ACCESS_PASSWORD = "2008";
-            const SUPABASE_URL = "https://sauzljctykhobanljsam.supabase.co";
-            const SUPABASE_ANON_KEY = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
-            const SUPABASE_EMAIL = "376035531@qq.com";
-            const SUPABASE_PASSWORD = "123456";
-            const TABLE_NAME = "account_records";
 
-            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-                auth: { persistSession: true, autoRefreshToken: true }
-            });
+            // === Supabase 云端配置（已停用，保留注释可回滚） ===
+            // const SUPABASE_URL = "https://sauzljctykhobanljsam.supabase.co";
+            // const SUPABASE_ANON_KEY = "sb_publishable_jQkoYsqWc6mfniUw_AI0cg_D-yLQ83u";
+            // const SUPABASE_EMAIL = "376035531@qq.com";
+            // const SUPABASE_PASSWORD = "123456";
+            // const TABLE_NAME = "account_records";
+            // const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            //     auth: { persistSession: true, autoRefreshToken: true }
+            // });
+
+            // === 本地 localStorage 配置（已停用，保留注释可回滚） ===
+            // const LOCAL_STORAGE_KEY = "jizhang_account_records";
+
+            // === Pantry 云端配置（当前使用） ===
+            // 【重要】去 https://getpantry.cloud 输入邮箱拿到你的 Pantry ID（一串 UUID），
+            //        粘贴到下面引号里。BASKET_NAME 不用改。
+            const PANTRY_ID = "d9b9b567-6e9e-4fc7-84c7-a3e03d182389";
+            const BASKET_NAME = "jizhang_records";
+            const PANTRY_URL = "https://getpantry.cloud/apiv1/pantry/" + PANTRY_ID + "/basket/" + BASKET_NAME;
 
             const CATEGORIES = {
                 income: ['工资', '奖金', '投资收益', '兼职', '红包', '其他'],
                 expense: ['餐饮', '购物', '交通', '住房', '水电煤', '娱乐', '医疗', '教育', '通讯', '其他']
             };
-
             const loginMask = document.getElementById('loginMask');
             const appWrap = document.getElementById('appWrap');
             const keyInput = document.getElementById('keyInput');
@@ -268,9 +280,25 @@
             const exportBtn = document.getElementById('exportBtn');
             const importBtn = document.getElementById('importBtn');
             const importFileInput = document.getElementById('importFileInput');
-
             let records = [];
             let currentUser = null;
+
+            // ========== Pantry 读写辅助函数 ==========
+            async function readBasket() {
+                const res = await fetch(PANTRY_URL);
+                if (res.status === 404) return []; // 首次使用，basket 尚未创建
+                if (!res.ok) throw new Error("云端读取失败 HTTP " + res.status);
+                const data = await res.json();
+                return Array.isArray(data) ? data : [];
+            }
+            async function writeBasket(arr) {
+                const res = await fetch(PANTRY_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(arr)
+                });
+                if (!res.ok) throw new Error("云端写入失败 HTTP " + res.status);
+            }
 
             // ========== 登录逻辑 ==========
             async function doLogin() {
@@ -281,79 +309,98 @@
                     keyInput.focus();
                     return;
                 }
-
                 loginBtn.disabled = true;
                 loginBtn.textContent = "登录中...";
-
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: SUPABASE_EMAIL,
-                    password: SUPABASE_PASSWORD
-                });
-
+                // === 原 Supabase 云端登录已停用，改为本地模式（仅校验访问密钥） ===
+                // const { data, error } = await supabase.auth.signInWithPassword({
+                //     email: SUPABASE_EMAIL,
+                //     password: SUPABASE_PASSWORD
+                // });
+                // if (error) {
+                //     loginBtn.disabled = false;
+                //     loginBtn.textContent = "确认进入";
+                //     alert("云端登录失败：" + error.message);
+                //     return;
+                // }
+                await new Promise(r => setTimeout(r, 200)); // 保留按钮"登录中..."的短暂过渡
                 loginBtn.disabled = false;
                 loginBtn.textContent = "确认进入";
-
-                if (error) {
-                    alert("云端登录失败：" + error.message);
-                    return;
-                }
-
-                currentUser = data.user;
+                currentUser = { id: "local-user" }; // 本地模式占位，保持后续 user_id 引用兼容
                 loginMask.classList.add('hidden');
                 appWrap.classList.remove('hidden');
                 initApp();
             }
-
             loginBtn.addEventListener('click', doLogin);
             keyInput.addEventListener('keydown', e => {
                 if (e.key === 'Enter') doLogin();
             });
-
             // ========== 数据操作 ==========
             async function loadRecords() {
                 recordsContainer.innerHTML = '<div class="loading">正在从云端加载数据...</div>';
-                const { data, error } = await supabase
-                    .from(TABLE_NAME)
-                    .select('*')
-                    .order('created_at', { ascending: false });
-
-                if (error) {
-                    recordsContainer.innerHTML = '<div class="empty-state">加载失败：' + error.message + '</div>';
+                // === 原 Supabase 查询已停用 ===
+                // const { data, error } = await supabase
+                //     .from(TABLE_NAME)
+                //     .select('*')
+                //     .order('created_at', { ascending: false });
+                // if (error) {
+                //     recordsContainer.innerHTML = '<div class="empty-state">加载失败：' + error.message + '</div>';
+                //     return;
+                // }
+                // === 原 localStorage 读取已停用 ===
+                // let data = [];
+                // try { data = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || []; }
+                // catch (e) { data = []; }
+                try {
+                    records = await readBasket();
+                } catch (err) {
+                    recordsContainer.innerHTML = '<div class="empty-state">加载失败：' + err.message + '</div>';
                     return;
                 }
-                records = data || [];
                 refreshUI();
             }
-
             async function addRecordToCloud(record) {
-                const { error } = await supabase.from(TABLE_NAME).insert([record]);
-                if (error) throw error;
+                // === 原 Supabase insert 已停用 ===
+                // const { error } = await supabase.from(TABLE_NAME).insert([record]);
+                // if (error) throw error;
+                // === 原 localStorage 写入已停用 ===
+                // const list = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+                // if (!record.id) record.id = 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                // if (!record.created_at) record.created_at = new Date().toISOString();
+                // list.push(record);
+                // localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+                const list = await readBasket();
+                if (!record.id) record.id = 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                if (!record.created_at) record.created_at = new Date().toISOString();
+                list.push(record);
+                await writeBasket(list);
             }
-
             async function deleteRecordFromCloud(id) {
-                const { error } = await supabase.from(TABLE_NAME).delete().eq('id', id);
-                if (error) throw error;
+                // === 原 Supabase delete 已停用 ===
+                // const { error } = await supabase.from(TABLE_NAME).delete().eq('id', id);
+                // if (error) throw error;
+                // === 原 localStorage 删除已停用 ===
+                // let list = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+                // list = list.filter(r => r.id !== id);
+                // localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+                let list = await readBasket();
+                list = list.filter(r => r.id !== id);
+                await writeBasket(list);
             }
-
-            // ========== 【新增】实时同步订阅 ==========
-            function subscribeRealtime() {
-                // 监听 account_records 表的所有变化（新增、修改、删除）
-                const channel = supabase
-                    .channel('public:account_records')
-                    .on('postgres_changes', {
-                        event: '*',
-                        schema: 'public',
-                        table: TABLE_NAME
-                    }, (payload) => {
-                        // 数据库有变化时，自动重新加载全部数据
-                        console.log('数据同步更新:', payload);
-                        loadRecords();
-                    })
-                    .subscribe();
-
-                return channel;
-            }
-
+            // ========== 【原】Supabase 实时同步订阅（Pantry 不支持，已停用） ==========
+            // function subscribeRealtime() {
+            //     const channel = supabase
+            //         .channel('public:account_records')
+            //         .on('postgres_changes', {
+            //             event: '*',
+            //             schema: 'public',
+            //             table: TABLE_NAME
+            //         }, (payload) => {
+            //             console.log('数据同步更新:', payload);
+            //             loadRecords();
+            //         })
+            //         .subscribe();
+            //     return channel;
+            // }
             // ========== 界面渲染 ==========
             function formatMoney(value) { return '¥' + Number(value).toFixed(2); }
             function getCategoryOptions(type) { return CATEGORIES[type] || []; }
@@ -489,17 +536,16 @@
                 renderExpenseChart();
                 renderCategorySummary();
             }
-
             window.deleteRecord = async function(id) {
                 if (!confirm('确定要删除这条记录吗？')) return;
                 try {
                     await deleteRecordFromCloud(id);
-                    // 删除成功后，实时订阅会自动触发 loadRecords，不用手动调
+                    // Pantry 无实时订阅，删除后手动刷新列表
+                    loadRecords();
                 } catch (err) {
                     alert('删除失败：' + err.message);
                 }
             };
-
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const type = typeSelect.value;
@@ -507,10 +553,8 @@
                 const category = categorySelect.value;
                 const recordDate = dateInput.value;
                 const note = noteInput.value.trim();
-
                 if (!amount || amount <= 0) { alert('请输入正确的金额'); return; }
                 if (!recordDate) { alert('请选择日期'); return; }
-
                 const newRecord = {
                     type: type,
                     amount: amount,
@@ -519,19 +563,18 @@
                     note: note,
                     user_id: currentUser.id
                 };
-
                 try {
                     await addRecordToCloud(newRecord);
                     amountInput.value = '';
                     noteInput.value = '';
                     setDefaultDate();
-                    // 保存成功后，实时订阅会自动触发 loadRecords，不用手动调
+                    // Pantry 无实时订阅，保存后手动刷新列表
+                    loadRecords();
                     alert('记录已保存到云端');
                 } catch (err) {
                     alert('保存失败：' + err.message);
                 }
             });
-
             typeSelect.addEventListener('change', updateCategoryOptions);
             filterType.addEventListener('change', function() { renderRecords(); renderExpenseChart(); });
             filterMonth.addEventListener('change', function() { renderRecords(); renderExpenseChart(); });
@@ -541,7 +584,6 @@
                 renderRecords();
                 renderExpenseChart();
             });
-
             exportBtn.addEventListener('click', function() {
                 const rows = records.map(record => `
                     <tr>
@@ -567,7 +609,6 @@
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
             });
-
             importBtn.addEventListener('click', function() { importFileInput.click(); });
             importFileInput.addEventListener('change', async function(e) {
                 const file = e.target.files[0];
@@ -591,7 +632,8 @@
                                 rest.user_id = currentUser.id;
                                 await addRecordToCloud(rest);
                             }
-                            // 导入完成后，实时订阅会自动刷新
+                            // Pantry 无实时订阅，导入后手动刷新
+                            loadRecords();
                             alert('导入成功');
                         }
                     } catch (err) {
@@ -601,12 +643,11 @@
                 reader.readAsText(file);
                 e.target.value = '';
             });
-
             function initApp() {
                 setDefaultDate();
                 updateCategoryOptions();
                 loadRecords();
-                subscribeRealtime();  // ✅ 【新增】登录成功后开启实时同步
+                // subscribeRealtime();  // Pantry 不支持实时订阅
             }
         })();
     </script>
