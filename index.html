@@ -289,13 +289,15 @@
                 if (res.status === 404) return []; // 首次使用，basket 尚未创建
                 if (!res.ok) throw new Error("云端读取失败 HTTP " + res.status);
                 const data = await res.json();
-                return Array.isArray(data) ? data : [];
+                // Pantry 要求 basket 内容是 JSON 对象，实际记录数组存在 records 字段里
+                if (Array.isArray(data)) return data; // 兼容老格式
+                return Array.isArray(data.records) ? data.records : [];
             }
             async function writeBasket(arr) {
                 const res = await fetch(PANTRY_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(arr)
+                    body: JSON.stringify({ records: arr }) // 包成 Pantry 要求的对象格式
                 });
                 if (!res.ok) throw new Error("云端写入失败 HTTP " + res.status);
             }
